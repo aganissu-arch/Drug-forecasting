@@ -1,0 +1,168 @@
+import numpy as np
+import pandas as pd
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.linear_model import LinearRegression
+from statsmodels.tsa.stattools import adfuller
+
+class ForecastModels:
+    @staticmethod
+    def naive(history):
+        return history.iloc[-1]
+
+    @staticmethod
+    def moving_average(history, window=6):
+        return history.rolling(window=window).mean().iloc[-1]
+
+    @staticmethod
+    def weighted_moving_average(history, weights=[0.05, 0.1, 0.15, 0.2, 0.25, 0.25]):
+        # Sanity Check: ตรวจสอบว่าข้อมูลมีเพียงพอกับน้ำหนักหรือไม่
+        n = len(weights)
+        if len(history) < n:
+            return history.mean()
+        last_n = history.values[-n:]
+        return np.dot(last_n, weights)
+
+    @staticmethod
+    def linear_regression(history, window=None):
+        # หากกำหนด window ให้ใช้เฉพาะข้อมูลล่าสุดตามจำนวนที่ระบุ
+        if window is not None and len(history) > window:
+            data = history.iloc[-window:]
+        else:
+            data = history
+            
+        X = np.arange(len(data)).reshape(-1, 1)
+        y = data.values
+        model = LinearRegression().fit(X, y)
+        return model.predict([[len(data)]])[0]
+
+    @staticmethod
+    def arima(history, order=(6,1,1)):
+        try:
+            # ใช้ .values เพื่อหลีกเลี่ยงปัญหาเรื่อง Index/Frequency ของ statsmodels
+            # enforce_stationarity=False และ enforce_invertibility=False 
+            # จะช่วยให้โมเดลสามารถ Fit ข้อมูลที่มีความผันผวนสูงได้ง่ายขึ้น
+            model = ARIMA(history.values, order=order, 
+                          enforce_stationarity=False, 
+                          enforce_invertibility=False)
+            # ลดความซับซ้อนของการ Fit เพื่อป้องกันการเกิด Numerical Error
+            # หากใช้ maxiter แล้วยังเป็น nan ให้ลองใช้ค่าเริ่มต้น หรือลด Order ลง
+            model_fit = model.fit(method_kwargs={'warn_convergence': False})
+            return model_fit.forecast(steps=1)[0]
+        except Exception:
+            return np.nan
+
+    @staticmethod
+    def get_model_insights(history, model_type, **kwargs):
+        """
+        ดึงข้อมูลพารามิเตอร์ภายในของโมเดล (Brain)
+        """
+        insights = {}
+        if model_type == "Linear Regression":
+            window = kwargs.get('window')
+            data = history.iloc[-window:] if window and len(history) > window else history
+            X = np.arange(len(data)).reshape(-1, 1)
+            y = data.values
+            model = LinearRegression().fit(X, y)
+            # แปลง numpy.float64 เป็น python float เพื่อให้ st.json แสดงผลได้
+            insights = {
+                "Slope (Trend)": float(model.coef_[0]), 
+                "Intercept": float(model.intercept_)
+            }
+            
+        elif model_type == "ARIMA":
+            order = kwargs.get('order', (1, 1, 1))
+            try:
+                model = ARIMA(history.values, order=order, 
+                              enforce_stationarity=False, enforce_invertibility=False)
+                # ทำเช่นเดียวกันในส่วนดึง Insights เพื่อให้ค่าพารามิเตอร์นิ่งที่สุด
+                model_fit = model.fit(method_kwargs={'warn_convergence': False})
+                # ดึงชื่อพารามิเตอร์และค่ามาจับคู่กัน (เนื่องจาก model_fit.params เป็น numpy array เมื่อส่งข้อมูลแบบ .values)
+                params_dict = dict(zip(model_fit.param_names, model_fit.params))
+                # แปลงค่าทศนิยมทุกตัวให้เป็น Python float เพื่อให้ st.json แสดงผลได้
+                insights = {str(k): float(v) for k, v in params_dict.items()}
+            except Exception as e:
+                insights = {"Error": f"ไม่สามารถดึงข้อมูลพารามิเตอร์ได้: {str(e)}"}
+                
+        return insights
+
+    @staticmethod
+    def interpret_arima(params_dict):
+        """
+        สร้างคำอธิบายพารามิเตอร์ ARIMA เป็นภาษาไทย
+        """
+        explanations = []
+        for key, val in params_dict.items():
+            if key.startswith('ar.L'):
+                lag = key.split('L')[1]
+                effect = "ดึงค่ากลับเพื่อรักษาสมดุล (Self-Correction)" if val < 0 else "ส่งเสริมแนวโน้มเดิม (Momentum)"
+                explanations.append(f"**{key} (ความจำเดือนที่ {lag})**: มีอิทธิพลแบบ {effect} ด้วยน้ำหนัก {val:.4f}")
+            
+            elif key.startswith('ma.L'):
+                lag = key.split('L')[1]
+                effect = "ปรับยอดเพิ่มขึ้นตามความผิดพลาด" if val > 0 else "ลดทอนความผิดพลาดจากเดือนก่อน"
+                explanations.append(f"**{key} (การเรียนรู้จากความคลาดเคลื่อน)**: นำความผิดพลาดของเดือนที่ {lag} มา{effect} ด้วยน้ำหนัก {val:.4f}")
+            
+            elif key == 'sigma2':
+                risk_level = "สูง (ข้อมูลมีความผันผวนมาก)" if val > 1000000 else "ปกติ"
+                explanations.append(f"**sigma2 (ความเสี่ยง)**: ค่าความแปรปรวนของ Error คือ {val:,.2f} ยิ่งค่านี้สูง หมายความว่าข้อมูลมีความผันผวนหรือความไม่แน่นอน{risk_level}")
+            
+            elif key == 'const' or key == 'intercept':
+                explanations.append(f"**{key} (ค่าคงที่)**: ค่าพื้นฐานของความต้องการยาอยู่ที่ประมาณ {val:.2f} หน่วย")
+
+        # เพิ่มส่วนสรุปวิธีการคำนวณ
+        explanations.append("---")
+        explanations.append("**💡 เอาไปคำนวณยังไง:**")
+        explanations.append("1. **ส่วนต่าง (d=1):** คำนวณหาการเปลี่ยนแปลงจากเดือนก่อนหน้า")
+        explanations.append("2. **ส่วน AR:** นำ 'การเปลี่ยนแปลงในอดีต' มาคูณกับน้ำหนัก (เช่น ar.L1) เพื่อดูแรงเหวี่ยง")
+        explanations.append("3. **ส่วน MA:** นำ 'ค่าความผิดพลาดเดือนที่แล้ว' มาคูณกับน้ำหนัก (เช่น ma.L1) เพื่อปรับจูน")
+        explanations.append("4. **ผลลัพธ์:** นำค่าที่ได้จากข้อ 2 และ 3 มารวมกัน แล้วบวกกลับเข้าไปที่ยอดเดือนล่าสุดเพื่อเป็นผลพยากรณ์")
+        
+        return explanations
+
+    @staticmethod
+    def run_eda(series):
+        """
+        วิเคราะห์ค่าทางสถิติพื้นฐาน (EDA)
+        """
+        if len(series) < 2:
+            return None
+            
+        # 1. Coefficient of Variation (CV)
+        cv = (series.std() / series.mean()) * 100 if series.mean() != 0 else 0
+        
+        # 2. ADF Test (Stationarity)
+        is_stationary = "Unknown"
+        p_value = 1.0
+        try:
+            adf_res = adfuller(series.dropna())
+            p_value = adf_res[1]
+            is_stationary = "Yes" if p_value < 0.05 else "No"
+        except:
+            pass
+            
+        # 3. Trend Slope (Simple)
+        slope = (series.iloc[-1] - series.iloc[0]) / len(series)
+        
+        return {
+            "CV (%)": cv,
+            "Stationary": is_stationary,
+            "ADF p-value": p_value,
+            "Trend Slope": slope,
+            "Max/Min Ratio": series.max() / series.min() if series.min() != 0 else 0
+        }
+
+def calculate_mape(actual, forecast):
+    actual, forecast = np.array(actual, dtype=float), np.array(forecast, dtype=float)
+    # ใช้ np.errstate เพื่อจัดการกรณีหารด้วย 0 (ถ้า actual เป็น 0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        abs_error = np.abs((actual - forecast) / actual)
+        # แทนที่ค่า inf ที่เกิดจากการหารด้วย 0 ให้เป็น nan เพื่อให้ nanmean ข้ามไป
+        abs_error[np.isinf(abs_error)] = np.nan
+        
+        # Sanity Check: ตรวจสอบว่าถ้าทุกค่าเป็น NaN (โมเดลพยากรณ์ล้มเหลวทุกจุด) ให้คืนค่า NaN ทันที
+        if np.isnan(abs_error).all():
+            return np.nan
+            
+        # ใช้ np.nanmean เพื่อคำนวณค่าเฉลี่ยโดยข้ามจุดที่เป็น nan (กรณีโมเดลทำนายไม่ได้บางเดือน)
+        mape = np.nanmean(abs_error) * 100
+    return mape
