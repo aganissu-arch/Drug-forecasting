@@ -153,16 +153,19 @@ class ForecastModels:
 
 def calculate_mape(actual, forecast):
     actual, forecast = np.array(actual, dtype=float), np.array(forecast, dtype=float)
-    # ใช้ np.errstate เพื่อจัดการกรณีหารด้วย 0 (ถ้า actual เป็น 0)
-    with np.errstate(divide='ignore', invalid='ignore'):
-        abs_error = np.abs((actual - forecast) / actual)
-        # แทนที่ค่า inf ที่เกิดจากการหารด้วย 0 ให้เป็น nan เพื่อให้ nanmean ข้ามไป
-        abs_error[np.isinf(abs_error)] = np.nan
+    # กรองเฉพาะจุดที่โมเดลสามารถทำนายได้ (ไม่เป็น NaN)
+    mask = ~np.isnan(forecast)
+    if not np.any(mask):
+        return np.nan
         
-        # Sanity Check: ตรวจสอบว่าถ้าทุกค่าเป็น NaN (โมเดลพยากรณ์ล้มเหลวทุกจุด) ให้คืนค่า NaN ทันที
-        if np.isnan(abs_error).all():
-            return np.nan
-            
-        # ใช้ np.nanmean เพื่อคำนวณค่าเฉลี่ยโดยข้ามจุดที่เป็น nan (กรณีโมเดลทำนายไม่ได้บางเดือน)
-        mape = np.nanmean(abs_error) * 100
-    return mape
+    # ในงานพยากรณ์ยา ข้อมูลมักมีค่าเป็น 0 ซึ่งทำให้ MAPE ปกติคำนวณไม่ได้หรือผิดเพี้ยน
+    # จึงปรับมาใช้ WAPE (Weighted Absolute Percentage Error) ซึ่งเป็นมาตรฐานสากลในระบบคงคลัง
+    # สูตร: (ผลรวมของค่าความคลาดเคลื่อนสัมบูรณ์) / (ผลรวมของค่าจริง)
+    total_actual = np.sum(actual[mask])
+    total_abs_error = np.sum(np.abs(actual[mask] - forecast[mask]))
+    
+    if total_actual == 0:
+        # หากยอดจริงทั้งหมดเป็น 0 และทำนายเป็น 0 = 0%, หากทำนาย > 0 = 100%
+        return 0.0 if total_abs_error == 0 else 100.0
+    
+    return (total_abs_error / total_actual) * 100
