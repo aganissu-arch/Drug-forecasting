@@ -120,6 +120,22 @@ class ForecastModels:
         return explanations
 
     @staticmethod
+    def interpret_linear_regression(ins):
+        """
+        สร้างคำอธิบายพารามิเตอร์ Linear Regression เป็นภาษาไทย
+        """
+        slope = ins.get("Slope (Trend)", 0)
+        intercept = ins.get("Intercept", 0)
+        trend_direction = "เพิ่มขึ้น" if slope > 0 else "ลดลง"
+        
+        explanations = [
+            f"**ความชัน (Slope: {slope:.2f})**: ในทุกๆ 1 เดือนที่ผ่านไป โมเดลคาดการณ์ว่าความต้องการยาจะ **{trend_direction}** เฉลี่ยเดือนละ {abs(slope):.2f} หน่วย",
+            f"**ค่าเริ่มต้น (Intercept: {intercept:.2f})**: จุดเริ่มต้นของการคำนวณตามเส้นแนวโน้มอยู่ที่ {intercept:.2f} หน่วย",
+            f"**การตีความ**: ข้อมูลชุดนี้มีทิศทางเป็นแนวโน้ม **{trend_direction}** อย่างชัดเจนในระยะยาว"
+        ]
+        return explanations
+
+    @staticmethod
     def run_eda(series):
         """
         วิเคราะห์ค่าทางสถิติพื้นฐาน (EDA)
@@ -169,3 +185,23 @@ def calculate_mape(actual, forecast):
         return 0.0 if total_abs_error == 0 else 100.0
     
     return (total_abs_error / total_actual) * 100
+
+def get_error_breakdown(actual, forecast):
+    """
+    สร้าง DataFrame แสดงรายละเอียดการคำนวณ Error รายเดือน
+    """
+    actual = np.array(actual)
+    forecast = np.array(forecast)
+    abs_error = np.abs(actual - forecast)
+    
+    # คำนวณ % Error รายเดือน (MAPE รายจุด) - ระวังกรณีหารด้วย 0
+    with np.errstate(divide='ignore', invalid='ignore'):
+        pct_error = (abs_error / actual) * 100
+        pct_error[np.isinf(pct_error)] = 100.0 # ถ้าค่าจริงเป็น 0 แต่ทายมีค่า ให้มองเป็น 100%
+        
+    return pd.DataFrame({
+        "Actual": actual,
+        "Forecast": forecast,
+        "Abs Error": abs_error,
+        "% Error (Point)": pct_error
+    })
