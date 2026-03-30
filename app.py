@@ -182,15 +182,28 @@ if menu == "Admin - จัดการข้อมูล":
                     st.warning(f"⚠️ ยานี้มียอดเป็น 0 ถึง {eda_res['Zero Proportion']*100:.0f}% โมเดล ARIMA อาจทำงานได้ไม่ดี แนะนำให้ใช้ Moving Average หรือ Naive แทน")
 
                 with st.expander("🔍 วิเคราะห์ความสัมพันธ์ย้อนหลัง (ACF/PACF) สำหรับ ARIMA"):
+                    # คำนวณเส้นนัยสำคัญ (95% Confidence Interval)
+                    conf_interval = 1.96 / (len(current_demand)**0.5)
+                    
                     c1, c2 = st.columns(2)
                     with c1:
-                        st.write("กราฟ ACF (ช่วยเลือกค่า q)")
-                        st.bar_chart(eda_res['ACF'])
-                        st.caption("ถ้าแท่งกราฟเกินเส้นนัยสำคัญที่เดือนไหน เดือนนั้นมีผลต่อค่าความคลาดเคลื่อน (q)")
+                        fig_acf, ax_acf = plt.subplots(figsize=(5, 3))
+                        ax_acf.bar(range(len(eda_res['ACF'])), eda_res['ACF'], color='skyblue')
+                        ax_acf.axhline(y=conf_interval, linestyle='--', color='red', alpha=0.5)
+                        ax_acf.axhline(y=-conf_interval, linestyle='--', color='red', alpha=0.5)
+                        ax_acf.axhline(y=0, color='black', linewidth=0.8)
+                        ax_acf.set_title("ACF (q)")
+                        st.pyplot(fig_acf)
+                        st.caption(f"เส้นประสีแดงคือนัยสำคัญ (±{conf_interval:.2f})")
                     with c2:
-                        st.write("กราฟ PACF (ช่วยเลือกค่า p)")
-                        st.bar_chart(eda_res['PACF'])
-                        st.caption("ถ้าแท่งกราฟเกินเส้นนัยสำคัญที่เดือนไหน เดือนนั้นมีผลต่อยอดเบิกปัจจุบัน (p)")
+                        fig_pacf, ax_pacf = plt.subplots(figsize=(5, 3))
+                        ax_pacf.bar(range(len(eda_res['PACF'])), eda_res['PACF'], color='salmon')
+                        ax_pacf.axhline(y=conf_interval, linestyle='--', color='red', alpha=0.5)
+                        ax_pacf.axhline(y=-conf_interval, linestyle='--', color='red', alpha=0.5)
+                        ax_pacf.axhline(y=0, color='black', linewidth=0.8)
+                        ax_pacf.set_title("PACF (p)")
+                        st.pyplot(fig_pacf)
+                        st.caption("แท่งที่สูงทะลุเส้นประสีแดงคือค่าที่ควรนำมาตั้งค่า p")
 
             col_chart1, col_chart2 = st.columns([3, 1])
             with col_chart1:
