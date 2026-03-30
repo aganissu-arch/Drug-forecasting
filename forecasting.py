@@ -157,14 +157,16 @@ class ForecastModels:
             pass
             
         # 3. Trend Slope (Simple)
-        slope = (series.iloc[-1] - series.iloc[0]) / len(series)
+        # คำนวณหาค่าเฉลี่ยการเปลี่ยนแปลงต่อเดือน (Average Delta)
+        # ใช้ n-1 เพื่อหาจำนวนช่วงเวลาที่เกิดขึ้นจริง
+        slope = (series.iloc[-1] - series.iloc[0]) / (len(series) - 1)
         
         return {
             "CV (%)": cv,
             "Stationary": is_stationary,
             "ADF p-value": p_value,
             "Trend Slope": slope,
-            "Max/Min Ratio": series.max() / series.min() if series.min() != 0 else 0
+            "Max/Min Ratio": series.max() / series.min() if series.min() != 0 else np.inf
         }
 
 def calculate_mape(actual, forecast):
