@@ -178,6 +178,20 @@ if menu == "Admin - จัดการข้อมูล":
                 col_eda3.metric("แนวโน้ม (Trend)", f"{eda_res['Trend Slope']:.2f}", help="ค่าความชันของแนวโน้ม: บอกทิศทางของข้อมูลโดยรวม ค่าบวกหมายถึงแนวโน้มความต้องการเพิ่มขึ้น ค่าลบหมายถึงแนวโน้มลดลง")
                 col_eda4.metric("Max/Min Ratio", f"{eda_res['Max/Min Ratio']:.2f}x", help="อัตราส่วนค่าสูงสุดต่อค่าต่ำสุด: ใช้ดูความกว้างของการแกว่งตัวของข้อมูลในชุดนี้ ยิ่งค่าสูงแสดงว่าช่วงการเบิกยามีความแตกต่างกันมากในแต่ละเดือน")
 
+                if eda_res.get('Zero Proportion', 0) > 0.3:
+                    st.warning(f"⚠️ ยานี้มียอดเป็น 0 ถึง {eda_res['Zero Proportion']*100:.0f}% โมเดล ARIMA อาจทำงานได้ไม่ดี แนะนำให้ใช้ Moving Average หรือ Naive แทน")
+
+                with st.expander("🔍 วิเคราะห์ความสัมพันธ์ย้อนหลัง (ACF/PACF) สำหรับ ARIMA"):
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.write("กราฟ ACF (ช่วยเลือกค่า q)")
+                        st.bar_chart(eda_res['ACF'])
+                        st.caption("ถ้าแท่งกราฟเกินเส้นนัยสำคัญที่เดือนไหน เดือนนั้นมีผลต่อค่าความคลาดเคลื่อน (q)")
+                    with c2:
+                        st.write("กราฟ PACF (ช่วยเลือกค่า p)")
+                        st.bar_chart(eda_res['PACF'])
+                        st.caption("ถ้าแท่งกราฟเกินเส้นนัยสำคัญที่เดือนไหน เดือนนั้นมีผลต่อยอดเบิกปัจจุบัน (p)")
+
             col_chart1, col_chart2 = st.columns([3, 1])
             with col_chart1:
                 fig, ax = plt.subplots(figsize=(10, 4))
