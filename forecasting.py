@@ -188,6 +188,21 @@ def calculate_mape(actual, forecast):
     
     return (total_abs_error / total_actual) * 100
 
+def calculate_mae(actual, forecast):
+    actual, forecast = np.array(actual, dtype=float), np.array(forecast, dtype=float)
+    mask = ~np.isnan(forecast)
+    if not np.any(mask):
+        return np.nan
+    return np.mean(np.abs(actual[mask] - forecast[mask]))
+
+def calculate_rmse(actual, forecast):
+    actual, forecast = np.array(actual, dtype=float), np.array(forecast, dtype=float)
+    mask = ~np.isnan(forecast)
+    if not np.any(mask):
+        return np.nan
+    mse = np.mean((actual[mask] - forecast[mask])**2)
+    return np.sqrt(mse)
+
 def get_error_breakdown(actual, forecast):
     """
     สร้าง DataFrame แสดงรายละเอียดการคำนวณ Error รายเดือน
