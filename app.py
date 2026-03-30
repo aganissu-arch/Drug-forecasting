@@ -372,21 +372,23 @@ if menu == "Admin - จัดการข้อมูล":
 
         # ส่วนการแสดงผลเดิม
         st.subheader("📊 ผลการประเมินโมเดล")
-        col_table, col_chart = st.columns([1, 2])
-        with col_table:
-            st.write("ตาราง MAPE")
-            st.table(pd.DataFrame(mape_results))
         
-        with col_chart:
-            st.write("📈 กราฟเปรียบเทียบ Actual vs Predictions")
-            for name in model_names:
-                fig_eval, ax_eval = plt.subplots(figsize=(8, 4))
-                months_label = [f"M+{j+1}" for j in range(len(actuals))]
-                ax_eval.plot(months_label, actuals, label='Actual', color='black', linewidth=2, marker='s')
-                ax_eval.plot(months_label, all_preds[name], label=f'Predict ({name})', color='#ff7f0e', linestyle='--')
-                ax_eval.set_title(f"Evaluation: {name}")
-                ax_eval.legend()
-                st.pyplot(fig_eval)
+        st.write("### 📏 ตารางเปรียบเทียบค่าความคลาดเคลื่อน (MAPE)")
+        st.table(pd.DataFrame(mape_results))
+
+        st.divider()
+
+        st.write("### 📈 กราฟเปรียบเทียบค่าจริงกับค่าพยากรณ์ (Actual vs Predictions)")
+        for name in model_names:
+            fig_eval, ax_eval = plt.subplots(figsize=(10, 4))
+            months_label = [f"M+{j+1}" for j in range(len(actuals))]
+            ax_eval.plot(months_label, actuals, label='Actual', color='black', linewidth=2, marker='s')
+            ax_eval.plot(months_label, all_preds[name], label=f'Predict ({name})', color='#ff7f0e', linestyle='--')
+            ax_eval.set_title(f"Evaluation Model: {name}")
+            ax_eval.set_ylabel("Demand Units")
+            ax_eval.legend()
+            ax_eval.grid(True, alpha=0.3)
+            st.pyplot(fig_eval)
 
         st.success(f"✅ บันทึกโมเดลที่ดีที่สุดเรียบร้อย: {best_model_name} (MAPE: {min_mape:.2f}%)")
 
