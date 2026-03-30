@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import matplotlib.pyplot as plt
-from forecasting import ForecastModels, calculate_mape
+from forecasting import ForecastModels, calculate_mape, get_error_breakdown
 from database import FirebaseManager
 import google.generativeai as genai
 
@@ -407,9 +407,26 @@ if menu == "Admin - จัดการข้อมูล":
             st.write(f"**Weighted Moving Average Weights**")
             wma_df = pd.DataFrame({"Month Lag": [f"M-{len(wma_weights)-i}" for i in range(len(wma_weights))], "Weight": wma_weights})
             st.bar_chart(wma_df.set_index("Month Lag"))
+            
+            st.write("**Linear Regression Equation**")
+            if "Slope (Trend)" in lr_ins:
+                st.latex(f"y = {lr_ins['Slope (Trend)']:.2f}x + {lr_ins['Intercept']:.2f}")
+                
+                with st.expander("💡 อ่านคำอธิบาย Linear Regression"):
+                    lr_exps = ForecastModels.interpret_linear_regression(lr_ins)
+                    for exp in lr_exps:
+                        st.write(f"- {exp}")
 
         st.divider()
         st.subheader("🧐 การวิเคราะห์ค่าความคลาดเคลื่อน (Residual Analysis)")
+        
+        # เพิ่มส่วนตรวจสอบรายละเอียดการคำนวณ
+        with st.expander("🔍 ตรวจสอบรายละเอียดการคำนวณ Error (Calculation Audit)"):
+            selected_model_audit = st.selectbox("เลือกโมเดลที่ต้องการตรวจสอบ", model_names)
+            breakdown_df = get_error_breakdown(actuals, all_preds[selected_model_audit])
+            st.dataframe(breakdown_df.style.format("{:.2f}").background_gradient(subset=["% Error (Point)"], cmap="Reds"))
+            st.info(f"💡 สูตร WAPE ที่ระบบใช้: (ผลรวม Abs Error: {breakdown_df['Abs Error'].sum():.2f}) / (ผลรวม Actual: {breakdown_df['Actual'].sum():.2f}) = {min_mape:.2f}%")
+
         res_df = pd.DataFrame(residual_dict, index=[f"M+{j+1}" for j in range(len(actuals))])
         st.dataframe(res_df.style.format("{:.2f}"))
         for name in model_names:
