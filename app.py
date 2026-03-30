@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import matplotlib.pyplot as plt
-from forecasting import ForecastModels, calculate_mape, get_error_breakdown
+from forecasting import ForecastModels, calculate_mape, get_error_breakdown, calculate_mae, calculate_rmse
 from database import FirebaseManager
 import google.generativeai as genai
 
@@ -312,10 +312,18 @@ if menu == "Admin - จัดการข้อมูล":
                 best_model_name = ""
                 
                 for name in model_names:
-                    error_val = calculate_mape(actuals, all_preds[name])
-                    mape_results.append({"Model": name, "MAPE (%)": f"{error_val:.2f}%"})
-                    if error_val < min_mape:
-                        min_mape = error_val
+                    mape_val = calculate_mape(actuals, all_preds[name])
+                    mae_val = calculate_mae(actuals, all_preds[name])
+                    rmse_val = calculate_rmse(actuals, all_preds[name])
+                    
+                    mape_results.append({
+                        "Model": name, 
+                        "WAPE (%)": f"{mape_val:.2f}%",
+                        "MAE (Units)": f"{mae_val:.2f}",
+                        "RMSE (Units)": f"{rmse_val:.2f}"
+                    })
+                    if mape_val < min_mape:
+                        min_mape = mape_val
                         best_model_name = name
                 
                 # คำนวณ Insights เพียงครั้งเดียวที่นี่เพื่อประสิทธิภาพ
