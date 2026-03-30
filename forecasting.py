@@ -169,7 +169,11 @@ class ForecastModels:
             "Max/Min Ratio": series.max() / series.min() if series.min() != 0 else np.inf
         }
 
-def calculate_mape(actual, forecast):
+def calculate_wape(actual, forecast):
+    """
+    คำนวณ WAPE (Weighted Absolute Percentage Error)
+    เหมาะสำหรับข้อมูลที่มีค่า 0 เพราะใช้ผลรวมของค่าจริงเป็นตัวหาร
+    """
     actual, forecast = np.array(actual, dtype=float), np.array(forecast, dtype=float)
     # กรองเฉพาะจุดที่โมเดลสามารถทำนายได้ (ไม่เป็น NaN)
     mask = ~np.isnan(forecast)
