@@ -3,6 +3,7 @@ import pandas as pd
 from statsmodels.tsa.arima.model import ARIMA
 from sklearn.linear_model import LinearRegression
 from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import acf, pacf
 
 class ForecastModels:
     @staticmethod
@@ -161,12 +162,18 @@ class ForecastModels:
         # ใช้ n-1 เพื่อหาจำนวนช่วงเวลาที่เกิดขึ้นจริง
         slope = (series.iloc[-1] - series.iloc[0]) / (len(series) - 1)
         
+        # 4. Check for Intermittent Demand ( sparsity )
+        zero_pct = (series == 0).sum() / len(series)
+        
         return {
             "CV (%)": cv,
             "Stationary": is_stationary,
             "ADF p-value": p_value,
             "Trend Slope": slope,
-            "Max/Min Ratio": series.max() / series.min() if series.min() != 0 else np.inf
+            "Max/Min Ratio": series.max() / series.min() if series.min() != 0 else np.inf,
+            "Zero Proportion": zero_pct,
+            "ACF": acf(series.dropna(), nlags=min(10, len(series)//2 - 1)).tolist(),
+            "PACF": pacf(series.dropna(), nlags=min(10, len(series)//2 - 1)).tolist()
         }
 
 def calculate_wape(actual, forecast):
