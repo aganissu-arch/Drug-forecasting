@@ -238,18 +238,24 @@ def get_error_breakdown(actual, forecast):
     """
     สร้าง DataFrame แสดงรายละเอียดการคำนวณ Error รายเดือน
     """
-    actual = np.array(actual)
-    forecast = np.array(forecast)
+    actual = np.array(actual, dtype=float)
+    forecast = np.array(forecast, dtype=float)
     abs_error = np.abs(actual - forecast)
+    sq_error = (actual - forecast)**2
     
-    # คำนวณ % Error รายเดือน (MAPE รายจุด) - ระวังกรณีหารด้วย 0
-    with np.errstate(divide='ignore', invalid='ignore'):
-        pct_error = (abs_error / actual) * 100
-        pct_error[np.isinf(pct_error)] = 100.0 # ถ้าค่าจริงเป็น 0 แต่ทายมีค่า ให้มองเป็น 100%
+    # คำนวณ % Error รายจุดตาม Logic Safe MAPE
+    pct_errors = []
+    for a, f in zip(actual, forecast):
+        if a > 0:
+            pct_errors.append((abs(a - f) / a) * 100)
+        else:
+            # กรณี Actual เป็น 0: หากทายมีค่าให้ผิด 100%, หากทาย 0 ให้ผิด 0%
+            pct_errors.append(100.0 if f > 0 else 0.0)
         
     return pd.DataFrame({
         "Actual": actual,
         "Forecast": forecast,
         "Abs Error": abs_error,
-        "% Error (Point)": pct_error
+        "Squared Error": sq_error,
+        "% Error (Point)": pct_errors
     })
