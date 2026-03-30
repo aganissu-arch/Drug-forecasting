@@ -424,8 +424,14 @@ if menu == "Admin - จัดการข้อมูล":
         with st.expander("🔍 ตรวจสอบรายละเอียดการคำนวณ Error (Calculation Audit)"):
             selected_model_audit = st.selectbox("เลือกโมเดลที่ต้องการตรวจสอบ", model_names)
             breakdown_df = get_error_breakdown(actuals, all_preds[selected_model_audit])
+            
+            # คำนวณ MAPE (WAPE) ของโมเดลที่เลือกตรวจสอบในขณะนั้น
+            total_abs_error = breakdown_df['Abs Error'].sum()
+            total_actual = breakdown_df['Actual'].sum()
+            current_audit_mape = (total_abs_error / total_actual * 100) if total_actual != 0 else 0
+            
             st.dataframe(breakdown_df.style.format("{:.2f}").background_gradient(subset=["% Error (Point)"], cmap="Reds"))
-            st.info(f"💡 สูตร WAPE ที่ระบบใช้: (ผลรวม Abs Error: {breakdown_df['Abs Error'].sum():.2f}) / (ผลรวม Actual: {breakdown_df['Actual'].sum():.2f}) = {min_mape:.2f}%")
+            st.info(f"💡 สูตร WAPE ที่ระบบใช้สำหรับ {selected_model_audit}: (ผลรวม Abs Error: {total_abs_error:,.2f}) / (ผลรวม Actual: {total_actual:,.2f}) = {current_audit_mape:.2f}%")
 
         res_df = pd.DataFrame(residual_dict, index=[f"M+{j+1}" for j in range(len(actuals))])
         st.dataframe(res_df.style.format("{:.2f}"))
