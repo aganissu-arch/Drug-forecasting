@@ -188,12 +188,39 @@ def calculate_mape(actual, forecast):
     
     return (total_abs_error / total_actual) * 100
 
+def calculate_mape(actual, forecast):
+    """
+    คำนวณ Standard MAPE แบบรองรับค่า 0 (Safe MAPE)
+    หาค่าเฉลี่ยของ % Error รายเดือน
+    """
+    actual, forecast = np.array(actual, dtype=float), np.array(forecast, dtype=float)
+    mask = ~np.isnan(forecast)
+    a, f = actual[mask], forecast[mask]
+    if len(a) == 0: return np.nan
+    
+    pe = []
+    for ai, fi in zip(a, f):
+        if ai > 0:
+            pe.append(abs(ai - fi) / ai)
+        else:
+            # กรณี Actual=0: หากทาย > 0 ให้ผิด 100%, หากทาย 0 ให้ผิด 0%
+            pe.append(1.0 if fi > 0 else 0.0)
+            
+    return np.mean(pe) * 100
+
 def calculate_mae(actual, forecast):
     actual, forecast = np.array(actual, dtype=float), np.array(forecast, dtype=float)
     mask = ~np.isnan(forecast)
     if not np.any(mask):
         return np.nan
     return np.mean(np.abs(actual[mask] - forecast[mask]))
+
+def calculate_mse(actual, forecast):
+    actual, forecast = np.array(actual, dtype=float), np.array(forecast, dtype=float)
+    mask = ~np.isnan(forecast)
+    if not np.any(mask):
+        return np.nan
+    return np.mean((actual[mask] - forecast[mask])**2)
 
 def calculate_rmse(actual, forecast):
     actual, forecast = np.array(actual, dtype=float), np.array(forecast, dtype=float)
