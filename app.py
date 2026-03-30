@@ -449,18 +449,31 @@ elif menu == "User - พยากรณ์รายเดือน":
     selected_drug = st.selectbox("เลือกชนิดยา", drug_list)
     
     config = db_manager.get_model_config(selected_drug) if selected_drug else None
-    
+    available_models = ["Naive", "Moving Average", "WMA", "Linear Regression", "ARIMA"]
+
     if config:
         st.success(f"ระบบจะใช้โมเดลที่ดีที่สุดสำหรับยานี้: **{config['best_model']}**")
-        # คำนวณหาจำนวนข้อมูลขั้นต่ำที่ต้องใช้ (Lookback Window)
-        p_val = config['arima_order'][0]
-        ma_val = config.get('ma_window', 6)
-        wma_val = len(config['wma_weights'])
-        lr_val = config.get('lr_window', 0)
-        required_len = max(p_val, ma_val, wma_val, lr_val, 1)
+        default_idx = available_models.index(config['best_model']) if config['best_model'] in available_models else 0
     else:
-        st.warning("ยังไม่มีการตั้งค่าโมเดลที่ดีที่สุดสำหรับยานี้ ระบบจะใช้ค่า Default")
-        required_len = 6
+        st.warning("⚠️ ยังไม่มีการประเมินโมเดลสำหรับยานี้ ระบบจะใช้ค่าเริ่มต้น")
+        default_idx = 0
+
+    selected_model = st.selectbox("เลือกโมเดลที่ต้องการใช้งาน", available_models, index=default_idx)
+
+    # คำนวณหาจำนวนข้อมูลขั้นต่ำ (required_len) เฉพาะโมเดลที่เลือก
+    if selected_model == "Naive":
+        required_len = 1
+    elif selected_model == "Moving Average":
+        required_len = config.get('ma_window', 6) if config else 6
+    elif selected_model == "WMA":
+        required_len = len(config['wma_weights']) if config else 6
+    elif selected_model == "Linear Regression":
+        # LR ควรมีข้อมูลอย่างน้อย 3-6 จุดเพื่อให้เห็นแนวโน้ม
+        lr_cfg = config.get('lr_window', 0) if config else 0
+        required_len = lr_cfg if lr_cfg > 0 else 6
+    elif selected_model == "ARIMA":
+        p_val = config['arima_order'][0] if config else 6
+        required_len = max(p_val, 1)
 
     st.subheader(f"กรอกข้อมูลย้อนหลัง {required_len} เดือน เพื่อพยากรณ์เดือนถัดไป (t)")
     
@@ -484,14 +497,19 @@ elif menu == "User - พยากรณ์รายเดือน":
         lr_win = config.get('lr_window', 0) if config else 0
         weights = config['wma_weights'] if config else [0.05, 0.1, 0.15, 0.2, 0.25, 0.25]
 
-        results = {
-            "Naive": ForecastModels.naive(history),
-            "Moving Average": ForecastModels.moving_average(history, window=ma_win),
-            "WMA": ForecastModels.weighted_moving_average(history, weights=weights),
-            "Linear Regression": ForecastModels.linear_regression(history, window=lr_win if lr_win > 0 else None),
-            "ARIMA": ForecastModels.arima(history, order=order)
-        }
+        # คำนวณเฉพาะโมเดลที่เลือก หรือแสดงผลแยกให้ชัดเจน
+        st.divider()
+        st.subheader(f"📊 ผลการพยากรณ์ด้วย {selected_model}")
         
-        res_cols = st.columns(len(results))
-        for i, (name, val) in enumerate(results.items()):
-            res_cols[i].metric(name, f"{val:,.0f}")
+        if selected_model == "Naive":
+            val = ForecastModels.naive(history)
+        elif selected_model == "Moving Average":
+            val = ForecastModels.moving_average(history, window=ma_win)
+        elif selected_model == "WMA":
+            val = ForecastModels.weighted_moving_average(history, weights=weights)
+        elif selected_model == "Linear Regression":
+            val = ForecastModels.linear_regression(history, window=lr_win if lr_win > 0 else None)
+        elif selected_model == "ARIMA":
+            val = ForecastModels.arima(history, order=order)
+            
+        st.metric(f"ปริมาณที่ควรสำรอง (เดือนถัดไป)", f"{val:,.0f} หน่วย")
