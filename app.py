@@ -439,13 +439,28 @@ if menu == "Admin - จัดการข้อมูล":
             selected_model_audit = st.selectbox("เลือกโมเดลที่ต้องการตรวจสอบ", model_names)
             breakdown_df = get_error_breakdown(actuals, all_preds[selected_model_audit])
             
-            # คำนวณ MAPE (WAPE) ของโมเดลที่เลือกตรวจสอบในขณะนั้น
+            # คำนวณค่าสะสมสำหรับแสดงในสูตร
             total_abs_error = breakdown_df['Abs Error'].sum()
+            total_sq_error = breakdown_df['Squared Error'].sum()
             total_actual = breakdown_df['Actual'].sum()
-            current_audit_mape = (total_abs_error / total_actual * 100) if total_actual != 0 else 0
+            total_pct_error = breakdown_df['% Error (Point)'].sum()
+            n = len(breakdown_df)
             
+            audit_wape = (total_abs_error / total_actual * 100) if total_actual != 0 else 0
+            audit_mape = total_pct_error / n
+            audit_mae = total_abs_error / n
+            audit_rmse = (total_sq_error / n) ** 0.5
+
             st.dataframe(breakdown_df.style.format("{:.2f}").background_gradient(subset=["% Error (Point)"], cmap="Reds"))
-            st.info(f"💡 สูตร WAPE ที่ระบบใช้สำหรับ {selected_model_audit}: (ผลรวม Abs Error: {total_abs_error:,.2f}) / (ผลรวม Actual: {total_actual:,.2f}) = {current_audit_mape:.2f}%")
+            
+            st.markdown(f"#### 🧮 การแยกคำนวณราย Metrics สำหรับ {selected_model_audit}")
+            c_audit1, c_audit2 = st.columns(2)
+            with c_audit1:
+                st.info(f"**WAPE:** (Σ|Error| / ΣActual) × 100\n\n({total_abs_error:,.2f} / {total_actual:,.2f}) × 100 = **{audit_wape:.2f}%**")
+                st.info(f"**MAPE:** (Σ% Error / n)\n\n({total_pct_error:,.2f} / {n}) = **{audit_mape:.2f}%**")
+            with c_audit2:
+                st.info(f"**MAE:** (Σ|Error| / n)\n\n({total_abs_error:,.2f} / {n}) = **{audit_mae:.2f}**")
+                st.info(f"**RMSE:** √(ΣError² / n)\n\n√({total_sq_error:,.2f} / {n}) = **{audit_rmse:.2f}**")
 
         res_df = pd.DataFrame(residual_dict, index=[f"M+{j+1}" for j in range(len(actuals))])
         st.dataframe(res_df.style.format("{:.2f}"))
