@@ -418,6 +418,23 @@ if menu == "Admin - จัดการข้อมูล":
         st.divider()
 
         st.write("### 📈 กราฟเปรียบเทียบค่าจริงกับค่าพยากรณ์ (Actual vs Predictions)")
+        
+        # --- กราฟแสดงทุกโมเดลพร้อมกัน (Overall Comparison) ---
+        fig_all, ax_all = plt.subplots(figsize=(10, 5))
+        months_label = [f"M+{j+1}" for j in range(len(actuals))]
+        # Plot Actual เป็นเส้นหนาสีดำให้อยู่บนสุด (zorder=5)
+        ax_all.plot(months_label, actuals, label='Actual (ค่าจริง)', color='black', linewidth=3, marker='s', zorder=5)
+        
+        # Plot ทุกโมเดลวนตาม List สีอัตโนมัติ
+        for name in model_names:
+            ax_all.plot(months_label, all_preds[name], label=name, marker='o', markersize=4, alpha=0.8)
+            
+        ax_all.set_title("Overall Comparison: All Models vs Actual")
+        ax_all.set_ylabel("Demand Units")
+        ax_all.legend(bbox_to_anchor=(1.05, 1), loc='upper left') # วาง Legend ไว้นอกกราฟเพื่อไม่ให้บังเส้น
+        ax_all.grid(True, alpha=0.3)
+        st.pyplot(fig_all)
+
         for name in model_names:
             fig_eval, ax_eval = plt.subplots(figsize=(10, 4))
             months_label = [f"M+{j+1}" for j in range(len(actuals))]
